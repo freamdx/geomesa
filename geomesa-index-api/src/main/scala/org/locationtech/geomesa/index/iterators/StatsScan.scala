@@ -13,6 +13,7 @@ import org.apache.commons.codec.binary.Base64
 import org.geotools.factory.Hints
 import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.index.api.GeoMesaFeatureIndex
+import org.locationtech.geomesa.index.iterators.StatsScan.StatResult
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.conf.GeoMesaSystemProperties.SystemProperty
 import org.locationtech.geomesa.utils.geotools.GeometryUtils
@@ -22,38 +23,20 @@ import org.locationtech.geomesa.utils.stats.{Stat, StatSerializer}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.opengis.filter.Filter
 
-import scala.util.control.NonFatal
-
-trait StatsScan extends AggregatingScan[Stat] with LazyLogging {
+trait StatsScan extends AggregatingScan[StatResult] with LazyLogging {
 
   import org.locationtech.geomesa.index.iterators.StatsScan.Configuration._
 
-  private var serializer: StatSerializer = _
-  private var batchSize: Int = -1
-  private var count: Int = -1
-
-  override protected def initResult(
+  override protected def createResult(
       sft: SimpleFeatureType,
       transform: Option[SimpleFeatureType],
-      options: Map[String, String]): Stat = {
-    val finalSft = transform.getOrElse(sft)
-    serializer = StatSerializer(finalSft)
-    count = 0
-    batchSize = StatsScan.BatchSize.toInt.get // has a valid default so should be safe to .get
-    Stat(finalSft, options(STATS_STRING_KEY))
+      batchSize: Int,
+      options: Map[String, String]): StatResult = {
+    new StatResult(transform.getOrElse(sft), options(STATS_STRING_KEY))
   }
 
-  override protected def aggregateResult(sf: SimpleFeature, result: Stat): Unit = {
-    try { result.observe(sf) } catch {
-      case NonFatal(e) => logger.warn(s"Error observing feature $sf", e)
-    }
-    count += 1
-  }
-
-  override protected def notFull(result: Stat): Boolean = if (count < batchSize) { true } else { count = 0; false }
-
-  // encode the result as a byte array
-  override protected def encodeResult(result: Stat): Array[Byte] = serializer.serialize(result)
+  override protected def defaultBatchSize: Int =
+    StatsScan.BatchSize.toInt.get // has a valid default so should be safe to .get
 }
 
 object StatsScan {
@@ -71,8 +54,8 @@ object StatsScan {
                 index: GeoMesaFeatureIndex[_, _],
                 filter: Option[Filter],
                 hints: Hints): Map[String, String] = {
-    import org.locationtech.geomesa.index.conf.QueryHints.{RichHints, STATS_STRING}
     import Configuration.STATS_STRING_KEY
+    import org.locationtech.geomesa.index.conf.QueryHints.{RichHints, STATS_STRING}
     AggregatingScan.configure(sft, index, filter, hints.getTransform, hints.getSampling) ++
       Map(STATS_STRING_KEY -> hints.get(STATS_STRING).asInstanceOf[String])
   }
@@ -131,5 +114,28 @@ object StatsScan {
 
     val stats = if (hints.isStatsEncode) { encodeStat(statSft)(sum) } else { sum.toJson }
     CloseableIterator(Iterator(new ScalaSimpleFeature(StatsSft, "stat", Array(stats, GeometryUtils.zeroPoint))))
+  }
+
+  /**
+   * Result wrapper for stats
+   *
+   * @param sft simple feature type
+   * @param definition stat string
+   */
+  class StatResult(sft: SimpleFeatureType, definition: String) extends AggregatingScan.Result {
+
+    private val stat = Stat(sft, definition)
+    private val serializer = StatSerializer(sft)
+
+    override def init(): Unit = {}
+
+    override def aggregate(sf: SimpleFeature): Int = {
+      stat.observe(sf)
+      1
+    }
+
+    override def encode(): Array[Byte] = try { serializer.serialize(stat) } finally { stat.clear() }
+
+    override def cleanup(): Unit = {}
   }
 }

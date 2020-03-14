@@ -24,22 +24,18 @@ class HBaseVersionAggregator extends HBaseAggregator[VersionAggregator] {
 
   override def setScanner(scanner: RegionScanner): Unit = {}
 
-  // we always return true exactly once so that we trigger aggregation, but then don't actually read any rows
-  override def hasNextData: Boolean = if (scanned) { false } else { scanned = true; true }
+  override def init(options: Map[String, String]): Unit = {}
 
-  override protected def initResult(sft: SimpleFeatureType,
-                                    transform: Option[SimpleFeatureType],
-                                    options: Map[String, String]): VersionAggregator = {
-    scanned = false
-    new VersionAggregator
-  }
+  override def aggregate(): Array[Byte] =
+    if (scanned) { null } else { scanned = true; GeoMesaProperties.ProjectVersion.getBytes(StandardCharsets.UTF_8) }
 
-  override protected def aggregateResult(sf: SimpleFeature, result: VersionAggregator): Unit = {}
+  override protected def createResult(
+      sft: SimpleFeatureType,
+      transform: Option[SimpleFeatureType],
+      batchSize: Int,
+      options: Map[String, String]): VersionAggregator = throw new NotImplementedError()
 
-  override protected def notFull(result: VersionAggregator): Boolean = true
-
-  override protected def encodeResult(result: VersionAggregator): Array[Byte] =
-    GeoMesaProperties.ProjectVersion.getBytes(StandardCharsets.UTF_8)
+  override protected def defaultBatchSize: Int = throw new NotImplementedError()
 }
 
 object HBaseVersionAggregator {
@@ -49,8 +45,10 @@ object HBaseVersionAggregator {
         (GeoMesaCoprocessor.AggregatorClass -> classOf[HBaseVersionAggregator].getName)
   }
 
-  class VersionAggregator {
-    def isEmpty: Boolean = false
-    def clear(): Unit = {}
+  class VersionAggregator extends AggregatingScan.Result {
+    override def init(): Unit = {}
+    override def aggregate(sf: SimpleFeature): Int = 1
+    override def encode(): Array[Byte] = GeoMesaProperties.ProjectVersion.getBytes(StandardCharsets.UTF_8)
+    override def cleanup(): Unit = {}
   }
 }

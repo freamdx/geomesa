@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.locationtech.geomesa</groupId>
         <artifactId>geomesa_2.11</artifactId>
-        <version>2.3.2-SNAPSHOT</version>
+        <version>2.3.3-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -115,6 +115,10 @@
         <dependency>
             <groupId>org.parboiled</groupId>
             <artifactId>parboiled-scala_${scala.binary.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.hadoop</groupId>

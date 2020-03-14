@@ -9,19 +9,21 @@
 package org.locationtech.geomesa.index.iterators
 
 import com.typesafe.scalalogging.LazyLogging
+import org.geotools.data.DataUtilities
 import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.features.SerializationOption.SerializationOptions
 import org.locationtech.geomesa.features.TransformSimpleFeature
 import org.locationtech.geomesa.features.kryo.KryoBufferSimpleFeature
 import org.locationtech.geomesa.index.api.GeoMesaFeatureIndex
+import org.locationtech.geomesa.index.iterators.AggregatingScan.RowValue
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.opengis.filter.Filter
 
+import scala.util.Try
 import scala.util.control.NonFatal
 
-trait AggregatingScan[T <: AnyRef { def isEmpty: Boolean; def clear(): Unit }]
-    extends SamplingIterator with ConfiguredScan with LazyLogging {
+trait AggregatingScan[T <: AggregatingScan.Result] extends SamplingIterator with ConfiguredScan with LazyLogging {
 
   import AggregatingScan.Configuration._
 
@@ -38,6 +40,7 @@ trait AggregatingScan[T <: AnyRef { def isEmpty: Boolean; def clear(): Unit }]
   private var reusableSf: KryoBufferSimpleFeature = _
   private var reusableTransformSf: TransformSimpleFeature = _
   private var hasTransform: Boolean = _
+  private var batchSize: Int = _
 
   override def init(options: Map[String, String]): Unit = {
     val spec = options(SftOpt)
@@ -69,7 +72,8 @@ trait AggregatingScan[T <: AnyRef { def isEmpty: Boolean; def clear(): Unit }]
       case (None, Some(samp))       => samp.apply
       case (Some(filt), Some(samp)) => f => filt.evaluate(f) && samp.apply(f)
     }
-    result = initResult(sft, if (hasTransform) { Some(transformSft) } else { None }, options)
+    batchSize = options.get(BatchSizeOpt).map(_.toInt).getOrElse(defaultBatchSize)
+    result = createResult(sft, if (hasTransform) { Some(transformSft) } else { None }, batchSize, options)
   }
 
   /**
@@ -78,59 +82,91 @@ trait AggregatingScan[T <: AnyRef { def isEmpty: Boolean; def clear(): Unit }]
     * @return encoded aggregate batch, or null if no results
     */
   def aggregate(): Array[Byte] = {
-    // noinspection LanguageFeature
-    result.clear()
-    while (hasNextData && notFull(result)) {
+
+    result.init()
+
+    var rowValue = try { if (hasNextData) { nextData() } else { null } } catch {
+      case NonFatal(e) => logger.error("Error in underlying scan while aggregating value:", e); null
+    }
+
+    var count = 0
+
+    while (rowValue != null) {
       try {
-        nextData(setValues)
-        if (validateFeature(reusableSf)) {
+        reusableSf.setIdBuffer(rowValue.row, rowValue.rowOffset, rowValue.rowLength)
+        reusableSf.setBuffer(rowValue.value, rowValue.valueOffset, rowValue.valueLength)
+        if (validate(reusableSf)) {
           // write the record to our aggregated results
           if (hasTransform) {
-            aggregateResult(reusableTransformSf, result)
+            count += result.aggregate(reusableTransformSf)
           } else {
-            aggregateResult(reusableSf, result)
+            count += result.aggregate(reusableSf)
           }
         }
       } catch {
-        case NonFatal(e) => logger.error("Error aggregating value:", e)
+        case NonFatal(e) => logger.error(s"Error aggregating value for ${debugSf()}:", e)
+      }
+
+      rowValue = try { if (count < batchSize && hasNextData) { nextData() } else { null } } catch {
+        case NonFatal(e) => logger.error("Error in underlying scan while aggregating value:", e); null
       }
     }
-    // noinspection LanguageFeature
-    if (result.isEmpty) { null } else {
-      encodeResult(result)
-    }
+
+    val bytes = if (count > 0) { result.encode() } else { null }
+
+    result.cleanup()
+
+    bytes
   }
 
-  private def setValues(row: Array[Byte], rowOffset: Int, rowLength: Int,
-                        value: Array[Byte], valueOffset: Int, valueLength: Int): Unit = {
-    reusableSf.setIdBuffer(row, rowOffset, rowLength)
-    reusableSf.setBuffer(value, valueOffset, valueLength)
-  }
+  private def debugSf(): String = Try(DataUtilities.encodeFeature(reusableSf)).getOrElse(s"$reusableSf")
 
   // returns true if there is more data to read
-  def hasNextData: Boolean
-  // seValues should be invoked with the underlying data
-  def nextData(setValues: (Array[Byte], Int, Int, Array[Byte], Int, Int) => Unit): Unit
+  protected def hasNextData: Boolean
+  // returns the next row of data
+  protected def nextData(): RowValue
 
-  // validate that we should aggregate this feature
-  // if overridden, ensure call to super.validateFeature
-  protected def validateFeature(f: SimpleFeature): Boolean = validate(f)
+  // default batch size
+  protected def defaultBatchSize: Int
 
-  // hook to allow result to be chunked up
-  // note: it's important to return false occasionally, so that we can check for cancelled scans
-  protected def notFull(result: T): Boolean
-
-  // create the result object for the current scan
-  protected def initResult(sft: SimpleFeatureType, transform: Option[SimpleFeatureType], options: Map[String, String]): T
-
-  // add the feature to the current aggregated result
-  protected def aggregateResult(sf: SimpleFeature, result: T): Unit
-
-  // encode the result as a byte array
-  protected def encodeResult(result: T): Array[Byte]
+  protected def createResult(
+      sft: SimpleFeatureType,
+      transform: Option[SimpleFeatureType],
+      batchSize: Int,
+      options: Map[String, String]): T
 }
 
 object AggregatingScan {
+
+  /**
+   * Aggregation result
+   */
+  trait Result {
+
+    /**
+     * Initialize the result for a scan
+     */
+    def init(): Unit
+
+    /**
+     * Aggregate a feature. May be called anytime after `init`
+     *
+     * @param sf simple feature
+     * @return number of entries aggregated
+     */
+    def aggregate(sf: SimpleFeature): Int
+
+    /**
+     * Encode current aggregation and reset the result. May be called anytime after `init`
+     */
+    def encode(): Array[Byte]
+
+    /**
+     * Dispose of any resources used by the scan. If the result is re-used, `init` will be called
+     * again before anything else
+     */
+    def cleanup(): Unit
+  }
 
   // configuration keys
   object Configuration {
@@ -140,6 +176,7 @@ object AggregatingScan {
     val CqlOpt             = "cql"
     val TransformSchemaOpt = "tsft"
     val TransformDefsOpt   = "tdefs"
+    val BatchSizeOpt       = "batch"
   }
 
   def configure(sft: SimpleFeatureType,
@@ -171,4 +208,13 @@ object AggregatingScan {
   implicit def StringToConfig(s: String): Either[String, Option[String]] = Left(s)
   // noinspection LanguageFeature
   implicit def OptionToConfig(s: Option[String]): Either[String, Option[String]] = Right(s)
+
+  case class RowValue(
+      row: Array[Byte],
+      rowOffset: Int,
+      rowLength: Int,
+      value: Array[Byte],
+      valueOffset: Int,
+      valueLength: Int
+    )
 }

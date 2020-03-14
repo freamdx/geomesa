@@ -10,7 +10,7 @@
     <groupId>org.locationtech.geomesa</groupId>
     <artifactId>geomesa_2.11</artifactId>
     <packaging>pom</packaging>
-    <version>2.3.2-SNAPSHOT</version>
+    <version>2.3.3-SNAPSHOT</version>
 
     <licenses>
         <license>
@@ -134,6 +134,8 @@
         <maven.test.jvmargs>-Duser.timezone=UTC -Xms1g -Xmx8g -XX:-UseGCOverheadLimit -Djava.net.preferIPv4Stack=true -Djava.awt.headless=true -Dgeomesa.scan.ranges.target=500</maven.test.jvmargs>
         <test.fork.count>1</test.fork.count>
         <test.fork.reuse>true</test.fork.reuse>
+        <!-- arrow tests become extremely slow with assertions enabled-->
+        <test.enable.assertions>false</test.enable.assertions>
     </properties>
 
     <profiles>
@@ -2525,6 +2527,7 @@
                         <forkCount>${test.fork.count}</forkCount>
                         <reuseForks>${test.fork.reuse}</reuseForks>
                         <forkedProcessTimeoutInSeconds>0</forkedProcessTimeoutInSeconds>
+                        <enableAssertions>${test.enable.assertions}</enableAssertions>
                         <includes>
                             <include>**/*Test.java</include>
                         </includes>
@@ -2601,6 +2604,7 @@
                     <configuration>
                         <header>build/copyright/ccri.txt</header>
                         <validHeaders>
+                            <validHeader>build/copyright/ccri-2020.txt</validHeader>
                             <validHeader>build/copyright/ccri-dstl.txt</validHeader>
                             <validHeader>build/copyright/ccri-dstl-2016.txt</validHeader>
                             <validHeader>build/copyright/dstl.txt</validHeader>
