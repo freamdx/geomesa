@@ -21,38 +21,38 @@
     </licenses>
 
     <modules>
-        <module>geomesa-accumulo</module>
-        <module>geomesa-archetypes</module>
+        <!--<module>geomesa-accumulo</module>-->
+        <!--<module>geomesa-archetypes</module>-->
         <module>geomesa-arrow</module>
-        <module>geomesa-bigtable</module>
-        <module>geomesa-blobstore</module>
-        <module>geomesa-cassandra</module>
+        <!--<module>geomesa-bigtable</module>-->
+        <!--<module>geomesa-blobstore</module>-->
+        <!--<module>geomesa-cassandra</module>-->
         <module>geomesa-convert</module>
         <module>geomesa-features</module>
         <module>geomesa-filter</module>
         <module>geomesa-fs</module>
-        <module>geomesa-geojson</module>
+        <!--<module>geomesa-geojson</module>-->
         <module>geomesa-hbase</module>
         <module>geomesa-index-api</module>
         <module>geomesa-jobs</module>
-        <module>geomesa-jupyter</module>
-        <module>geomesa-kafka</module>
-        <module>geomesa-kudu</module>
-        <module>geomesa-lambda</module>
+        <!--<module>geomesa-jupyter</module>-->
+        <!--<module>geomesa-kafka</module>-->
+        <!--<module>geomesa-kudu</module>-->
+        <!--<module>geomesa-lambda</module>-->
         <module>geomesa-memory</module>
-        <module>geomesa-metrics</module>
+        <!--<module>geomesa-metrics</module>-->
         <module>geomesa-native-api</module>
         <module>geomesa-process</module>
-        <module>geomesa-redis</module>
+        <!--<module>geomesa-redis</module>-->
         <module>geomesa-security</module>
         <module>geomesa-spark</module>
-        <module>geomesa-stream</module>
+        <!--<module>geomesa-stream</module>-->
         <module>geomesa-tools</module>
         <module>geomesa-utils</module>
-        <module>geomesa-web</module>
+        <!--<module>geomesa-web</module>-->
         <module>geomesa-z3</module>
         <module>geomesa-zk-utils</module>
-        <module>docs</module>
+        <!--<module>docs</module>-->
     </modules>
 
     <properties>
@@ -65,17 +65,17 @@
 
         <!-- this must remain outside of version specific scala profiles for sbt/ivy -->
         <scala.binary.version>2.11</scala.binary.version>
-        <scala.version>2.11.7</scala.version>
+        <scala.version>2.11.8</scala.version>
 
         <scala.xml.version>1.0.6</scala.xml.version>
         <scala.parsers.version>1.0.6</scala.parsers.version>
 
         <geoserver.version>2.14.2</geoserver.version>
-        <gt.version>20.0</gt.version>
+        <gt.version>20.5</gt.version>
         <jaiext.version>1.1.1</jaiext.version>
         <jts.version>1.16.0</jts.version>
         <avro.version>1.7.5</avro.version> <!-- see also confluent.avro.version -->
-        <parquet.version>1.9.0</parquet.version>
+        <parquet.version>1.10.1</parquet.version>
         <orc.version>1.5.4</orc.version>
         <fasterxml.jackson.version>2.6.7</fasterxml.jackson.version> <!-- used by spark (2.6.7) and arrow (2.7.1) -->
         <fasterxml.jackson.databind.version>2.6.7.1</fasterxml.jackson.databind.version> <!-- used by spark (2.6.7.1) and arrow (2.7.1) -->
@@ -85,16 +85,16 @@
         <scalatra.version>2.6.3</scalatra.version>
         <kryo.version>3.0.3</kryo.version>
         <arrow.version>0.10.0</arrow.version>
-        <netty.version>4.1.17.Final</netty.version>
+        <netty.version>4.1.42.Final</netty.version>
 
         <!-- environment-dependent versions -->
         <!-- These are compiled and pass CQs and should be compatible with recommended versions -->
         <accumulo.version>1.8.1</accumulo.version>
         <zookeeper.version>3.4.10</zookeeper.version>
         <thrift.version>0.9.3</thrift.version>
-        <hadoop.version>2.6.4</hadoop.version>
-        <spark.version>2.3.1</spark.version>
-        <hbase.version>1.3.1</hbase.version>
+        <hadoop.version>2.8.5</hadoop.version>
+        <spark.version>2.4.4</spark.version>
+        <hbase.version>1.4.11</hbase.version>
         <hbase.guava.version>12.0.1</hbase.guava.version>
         <protobuf.version>2.5.0</protobuf.version>
         <cassandra.version>3.0.0</cassandra.version>
@@ -1067,6 +1067,42 @@
             <dependency>
                 <groupId>org.geotools.jdbc</groupId>
                 <artifactId>gt-jdbc-h2</artifactId>
+                <version>${gt.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <!-- excluded due to license issues -->
+                        <groupId>javax.media</groupId>
+                        <artifactId>jai_core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.geotools.jdbc</groupId>
+                <artifactId>gt-jdbc-postgis</artifactId>
+                <version>${gt.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <!-- excluded due to license issues -->
+                        <groupId>javax.media</groupId>
+                        <artifactId>jai_core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.geotools</groupId>
+                <artifactId>gt-epsg-postgresql</artifactId>
+                <version>${gt.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <!-- excluded due to license issues -->
+                        <groupId>javax.media</groupId>
+                        <artifactId>jai_core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.geotools.jdbc</groupId>
+                <artifactId>gt-jdbc-mysql</artifactId>
                 <version>${gt.version}</version>
                 <exclusions>
                     <exclusion>
@@ -2309,7 +2345,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty</artifactId>
-                <version>3.6.2.Final</version>
+                <version>3.9.9.Final</version>
             </dependency>
 
             <!-- geoserver 2.14 spring version -->
