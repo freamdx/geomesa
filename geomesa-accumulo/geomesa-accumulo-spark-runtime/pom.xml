@@ -35,9 +35,14 @@
             <artifactId>geomesa-tools_${scala.binary.version}</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.locationtech.geomesa</groupId>-->
+            <!--<artifactId>geomesa-jupyter-leaflet_${scala.binary.version}</artifactId>-->
+            <!--<scope>runtime</scope>-->
+        <!--</dependency>-->
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-jupyter-leaflet_${scala.binary.version}</artifactId>
+            <artifactId>geomesa-spark-geotools_${scala.binary.version}</artifactId>
             <scope>runtime</scope>
         </dependency>
 

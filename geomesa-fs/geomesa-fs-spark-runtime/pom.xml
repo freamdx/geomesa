@@ -36,11 +36,11 @@
             <artifactId>geomesa-tools_${scala.binary.version}</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <dependency>
-            <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-jupyter-leaflet_${scala.binary.version}</artifactId>
-            <scope>runtime</scope>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.locationtech.geomesa</groupId>-->
+            <!--<artifactId>geomesa-jupyter-leaflet_${scala.binary.version}</artifactId>-->
+            <!--<scope>runtime</scope>-->
+        <!--</dependency>-->
 
         <!--Mark dependency as provided to avoid Spark 2.2.x conflicts-->
         <dependency>
