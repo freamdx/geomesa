@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 2013-2019 Commonwealth Computer Research, Inc.
+ * Copyright (c) 2013-2020 Commonwealth Computer Research, Inc.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Apache License, Version 2.0
  * which accompanies this distribution and is available at
@@ -76,7 +76,7 @@ object Z3IndexV5 {
       val dtg = writable.getAttribute[Date](dtgIndex)
       val time = if (dtg == null) { 0 } else { dtg.getTime }
       val BinnedTime(b, t) = timeToIndex(time)
-      val z = try { sfc.index(geom.getX, geom.getY, t, lenient).z } catch {
+      val z = try { sfc.index(geom.getX, geom.getY, t, lenient) } catch {
         case NonFatal(e) => throw new IllegalArgumentException(s"Invalid z value from geometry/time: $geom,$dtg", e)
       }
       val shard = sharding(writable)
@@ -108,6 +108,15 @@ object Z3IndexV5 {
           case BoundedRange(lo, hi) =>
             BoundedByteRange(ByteArrays.toBytes(lo.bin, lo.z), ByteArrays.toBytesFollowingPrefix(hi.bin, hi.z))
 
+          case LowerBoundedRange(lo) =>
+            BoundedByteRange(ByteArrays.toBytes(lo.bin, lo.z), ByteRange.UnboundedUpperRange)
+
+          case UpperBoundedRange(hi) =>
+            BoundedByteRange(ByteRange.UnboundedLowerRange, ByteArrays.toBytesFollowingPrefix(hi.bin, hi.z))
+
+          case UnboundedRange(_) =>
+            BoundedByteRange(ByteRange.UnboundedLowerRange, ByteRange.UnboundedUpperRange)
+
           case r =>
             throw new IllegalArgumentException(s"Unexpected range type $r")
         }
@@ -117,6 +126,19 @@ object Z3IndexV5 {
             val lower = ByteArrays.toBytes(lo.bin, lo.z)
             val upper = ByteArrays.toBytesFollowingPrefix(hi.bin, hi.z)
             rangePrefixes.map(p => BoundedByteRange(ByteArrays.concat(p, lower), ByteArrays.concat(p, upper)))
+
+          case LowerBoundedRange(lo) =>
+            val lower = ByteArrays.toBytes(lo.bin, lo.z)
+            val upper = ByteRange.UnboundedUpperRange
+            rangePrefixes.map(p => BoundedByteRange(ByteArrays.concat(p, lower), ByteArrays.concat(p, upper)))
+
+          case UpperBoundedRange(hi) =>
+            val lower = ByteRange.UnboundedLowerRange
+            val upper = ByteArrays.toBytesFollowingPrefix(hi.bin, hi.z)
+            rangePrefixes.map(p => BoundedByteRange(ByteArrays.concat(p, lower), ByteArrays.concat(p, upper)))
+
+          case UnboundedRange(_) =>
+            Seq(BoundedByteRange(ByteRange.UnboundedLowerRange, ByteRange.UnboundedUpperRange))
 
           case r =>
             throw new IllegalArgumentException(s"Unexpected range type $r")

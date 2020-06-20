@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 2013-2019 Commonwealth Computer Research, Inc.
+ * Copyright (c) 2013-2020 Commonwealth Computer Research, Inc.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Apache License, Version 2.0
  * which accompanies this distribution and is available at
@@ -243,7 +243,9 @@ class AttributeIndexTest extends Specification with LazyLogging {
         "name like 'bo_'"   -> Seq("bob", "bot"),
         "name like 'b_b'"   -> Seq("bob", "bub"),
         "name like 'b%b'"   -> Seq("bob", "bub"),
-        "name like 'b__l'"  -> Seq("bill")
+        "name like 'b__l'"  -> Seq("bill"),
+        "name ilike 'B%b'"  -> Seq("bob", "bub"),
+        "name ilike 'ALi%'" -> Seq("alice")
       )
       val withDates = queries.map { case (filter, expected) =>
         s"$filter AND dtg > '2012-01-01T11:45:00.000Z' AND dtg < '2014-01-01T13:00:00.000Z'" -> expected
@@ -313,7 +315,7 @@ class AttributeIndexTest extends Specification with LazyLogging {
 
       ds.getSchema(typeName).getDescriptor("name").getCardinality mustEqual Cardinality.HIGH
 
-      val notNull = ECQL.toFilter("name IS NOT NULL")
+      val notNull = FastFilterFactory.toFilter(sft, "name IS NOT NULL")
       val notNullPlans = ds.getQueryPlan(new Query(typeName, notNull))
       notNullPlans must haveLength(1)
       notNullPlans.head.filter.index must beAnInstanceOf[AttributeIndex]

@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 2013-2019 Commonwealth Computer Research, Inc.
+ * Copyright (c) 2013-2020 Commonwealth Computer Research, Inc.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Apache License, Version 2.0
  * which accompanies this distribution and is available at
@@ -18,18 +18,32 @@ package object security {
 
   import scala.collection.JavaConverters._
 
-  val GEOMESA_AUDIT_PROVIDER_IMPL = SystemProperty("geomesa.audit.provider.impl")
-  val GEOMESA_AUTH_PROVIDER_IMPL  = SystemProperty("geomesa.auth.provider.impl")
+  val GEOMESA_AUDIT_PROVIDER_IMPL: SystemProperty = SystemProperty("geomesa.audit.provider.impl")
+  val GEOMESA_AUTH_PROVIDER_IMPL : SystemProperty = SystemProperty("geomesa.auth.provider.impl")
 
-  val AuthsParam           = new GeoMesaParam[String]("geomesa.security.auths", "Super-set of authorizations that will be used for queries. The actual authorizations might differ, depending on the authorizations provider, but will be outside this set. Comma-delimited.", deprecatedKeys = Seq("auths"))
-  val ForceEmptyAuthsParam = new GeoMesaParam[java.lang.Boolean]("geomesa.security.auths.force-empty", "Default to using no authorizations during queries, instead of using the connection user's authorizations", default = false, deprecatedKeys = Seq("forceEmptyAuths"))
-  val AuthProviderParam    = new GeoMesaParam[AuthorizationsProvider]("geomesa.security.auths.provider", "Authorizations provider", deprecatedKeys = Seq("authProvider"))
-  val VisibilitiesParam    = new GeoMesaParam[String]("geomesa.security.visibilities", "Default visibilities to apply to all written data", deprecatedKeys = Seq("visibilities"))
+  val AuthsParam =
+    new GeoMesaParam[String](
+      "geomesa.security.auths",
+      "Super-set of authorizations that will be used for queries. The actual authorizations might differ, depending on the authorizations provider, but will be outside this set. Comma-delimited.",
+      deprecatedKeys = Seq("auths"),
+      supportsNiFiExpressions = true)
+
+  val ForceEmptyAuthsParam =
+    new GeoMesaParam[java.lang.Boolean](
+      "geomesa.security.auths.force-empty",
+      "Default to using no authorizations during queries, instead of using the connection user's authorizations",
+      default = false,
+      deprecatedKeys = Seq("forceEmptyAuths"))
+
+  val AuthProviderParam =
+    new GeoMesaParam[AuthorizationsProvider](
+      "geomesa.security.auths.provider",
+      "Authorizations provider",
+      deprecatedKeys = Seq("authProvider"))
 
   trait SecurityParams {
     val AuthsParam: GeoMesaParam[String] = org.locationtech.geomesa.security.AuthsParam
     val ForceEmptyAuthsParam: GeoMesaParam[java.lang.Boolean] = org.locationtech.geomesa.security.ForceEmptyAuthsParam
-    val VisibilitiesParam: GeoMesaParam[String] = org.locationtech.geomesa.security.VisibilitiesParam
   }
 
   implicit class SecureSimpleFeature(val sf: SimpleFeature) extends AnyVal {
